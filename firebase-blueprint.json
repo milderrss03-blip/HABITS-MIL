@@ -1,0 +1,82 @@
+{
+  "$schema": "https://raw.githubusercontent.com/firebase/firebase-tools/master/schema/blueprint.schema.json",
+  "entities": {
+    "users": {
+      "fields": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "initials": { "type": "string" },
+        "role": { "type": "string" },
+        "streakDays": { "type": "number" },
+        "isAuthenticated": { "type": "boolean" },
+        "provider": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "habits": {
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "streak": { "type": "number" },
+        "completed": { "type": "boolean" },
+        "category": { "type": "string" },
+        "timeBlock": { "type": "string" },
+        "icon": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "goals": {
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "categoryLabel": { "type": "string" },
+        "badge": { "type": "string" },
+        "current": { "type": "number" },
+        "target": { "type": "number" },
+        "unit": { "type": "string" },
+        "prefix": { "type": "string" },
+        "color": { "type": "string" },
+        "image": { "type": "string" },
+        "timeline": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "tasks": {
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "time": { "type": "string" },
+        "priority": { "type": "string" },
+        "category": { "type": "string" },
+        "tag": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "events": {
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "date": { "type": "string" },
+        "timeStart": { "type": "string" },
+        "timeEnd": { "type": "string" },
+        "allDay": { "type": "boolean" },
+        "color": { "type": "string" },
+        "desc": { "type": "string" },
+        "tag": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}
