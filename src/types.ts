@@ -22,6 +22,7 @@ export interface Goal {
   color?: 'emerald' | 'cyan' | 'indigo' | 'amber';
   image?: string;
   timeline?: string;
+  period?: 'mensual' | 'anual';
 }
 
 export interface DailyTask {
@@ -29,10 +30,16 @@ export interface DailyTask {
   title: string;
   completed: boolean;
   time?: string;
+  date?: string; // Formato YYYY-MM-DD para asignación precisa por semana y día
   priority: 'urgente' | 'normal';
   category: 'trabajo' | 'finanzas' | 'personal';
   subtasks?: { title: string; completed: boolean }[];
   tag?: string;
+  reminder?: boolean;
+  reminderCustomText?: string;
+  reminderSound?: 'crystal' | 'cyber' | 'zen' | 'victory' | 'chime';
+  reminderIcon?: 'check' | 'zap' | 'flame' | 'diamond' | 'briefcase' | 'star' | 'target' | 'bell';
+  reminderColor?: 'cyan' | 'gold' | 'rose' | 'emerald' | 'purple';
 }
 
 export interface Quote {
@@ -94,4 +101,4 @@ export interface UserProfile {
 }
 
 export type ActiveScreen = 'welcome' | 'dashboard' | 'login';
-export type DashboardTab = 'hoy' | 'tareas' | 'calendario' | 'metas' | 'metricas' | 'asistente';
+export type DashboardTab = 'hoy' | 'tareas' | 'calendario' | 'metas' | 'metricas';

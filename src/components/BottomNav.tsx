@@ -4,15 +4,13 @@ import {
   CheckSquare,
   Target,
   TrendingUp,
-  CalendarDays,
-  Bot,
-  Globe
+  CalendarDays
 } from 'lucide-react';
 
 interface BottomNavProps {
   currentTab: DashboardTab;
   onSelectTab: (tab: DashboardTab) => void;
-  onOpenZen: () => void;
+  onOpenZen?: () => void;
   pendingTasksCount?: number;
 }
 
@@ -53,12 +51,6 @@ export function BottomNav({
       label: 'Agenda',
       Icon: CalendarDays,
       glowColor: 'rgba(56, 189, 248, 0.7)'
-    },
-    {
-      id: 'asistente' as DashboardTab,
-      label: 'Voz AI',
-      Icon: Bot,
-      glowColor: 'rgba(192, 132, 252, 0.7)'
     },
   ];
 
@@ -122,23 +114,6 @@ export function BottomNav({
           </button>
         );
       })}
-
-      {/* Zen Screen return shortcut */}
-      <button
-        type="button"
-        onClick={onOpenZen}
-        title="Pabellón de Millonarios / Modo Zen"
-        className="relative flex flex-col items-center justify-center py-1 px-1 text-amber-300/80 hover:text-amber-300 transition-all duration-200 cursor-pointer group rounded-xl"
-      >
-        <div className="relative flex items-center justify-center w-8 h-7">
-          <Globe className="w-5 h-5 group-hover:scale-110 text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.5)] transition-transform stroke-[2]" />
-          <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-        </div>
-        <span className="text-[10px] font-bold tracking-tight text-amber-300/90 group-hover:text-amber-200">
-          Zen
-        </span>
-        <span className="w-1.5 h-1.5 rounded-full bg-transparent mt-0.5" />
-      </button>
     </nav>
   );
 }

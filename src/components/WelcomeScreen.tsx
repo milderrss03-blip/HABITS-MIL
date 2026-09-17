@@ -105,13 +105,15 @@ export function WelcomeScreen({
   };
 
   return (
-    <main className="relative w-full h-full min-h-[844px] bg-[#070a11] overflow-hidden flex flex-col justify-between select-none font-sans text-slate-100">
+    <main className="relative w-full min-h-screen bg-[#070a11] overflow-x-hidden flex flex-col justify-between select-none font-sans text-slate-100 pb-10">
       {/* Interactive Physics Miniature Dollar Bills Canvas on Finger / Pointer Movement */}
       <TouchBubblesCanvas interactive={true} />
 
-      {/* Ambient Orbital Background Glows */}
-      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[340px] h-[340px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-[28%] left-1/2 -translate-x-1/2 w-[280px] h-[280px] bg-cyan-500/10 rounded-full blur-2xl pointer-events-none animate-pulse-glow" />
+      {/* Ambient Orbital Background Glows in clipped container */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[340px] h-[340px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 w-[280px] h-[280px] bg-cyan-500/10 rounded-full blur-2xl animate-pulse-glow" />
+      </div>
 
       {/* TopBarNav */}
       <header className="w-full px-5 pt-5 pb-2 flex items-center justify-between z-30">

@@ -74,9 +74,23 @@ export function CalendarioTab({
     setIsModalOpen(true);
   };
 
+  // Helper to parse day from formats like "17" or "2026-09-17"
+  const getEventDay = (dateStr?: string): number => {
+    if (!dateStr) return new Date().getDate();
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length >= 3) {
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(d)) return d;
+      }
+    }
+    const parsed = parseInt(dateStr, 10);
+    return isNaN(parsed) ? new Date().getDate() : parsed;
+  };
+
   // Filter events by selected day or view
   const eventsForSelectedDay = events.filter((e) => {
-    const eventDay = parseInt(e.date, 10);
+    const eventDay = getEventDay(e.date);
     return eventDay === selectedDay;
   });
 
@@ -89,7 +103,7 @@ export function CalendarioTab({
 
   // Events count map per day for dots
   const dayEventsMap = events.reduce((acc, ev) => {
-    const d = parseInt(ev.date, 10);
+    const d = getEventDay(ev.date);
     if (!isNaN(d)) {
       if (!acc[d]) acc[d] = [];
       acc[d].push(ev);
@@ -257,7 +271,7 @@ export function CalendarioTab({
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="text-[15px] font-bold text-white">
-              Día {selectedDay} de Octubre
+              Día {selectedDay} de {months[currentMonthIndex]}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-bold">
               {eventsForSelectedDay.length} {eventsForSelectedDay.length === 1 ? 'evento' : 'eventos'}

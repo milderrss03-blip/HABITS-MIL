@@ -19,6 +19,7 @@ export function EditGoalModal({
 }: EditGoalModalProps) {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<'finance' | 'fitness' | 'mind' | 'custom'>('finance');
+  const [period, setPeriod] = useState<'mensual' | 'anual'>('mensual');
   const [current, setCurrent] = useState(0);
   const [target, setTarget] = useState(100);
   const [unit, setUnit] = useState('');
@@ -29,6 +30,7 @@ export function EditGoalModal({
     if (goal) {
       setTitle(goal.title);
       setCategory(goal.category);
+      setPeriod(goal.period || 'mensual');
       setCurrent(goal.current);
       setTarget(goal.target);
       setUnit(goal.unit || '');
@@ -58,6 +60,7 @@ export function EditGoalModal({
           : category === 'mind'
           ? 'Desarrollo'
           : 'Personal',
+      period,
       current: numCurrent,
       target: numTarget,
       unit,
@@ -102,6 +105,35 @@ export function EditGoalModal({
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-[#090d16] border border-cyan-500/25 rounded-xl px-3 py-2 text-white text-[13px] font-medium focus:outline-none focus:border-cyan-400"
             />
+          </div>
+
+          {/* Period Selector (Mensual vs Anual) */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-400 block mb-1">Horizonte de la Meta</label>
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#070a12] border border-cyan-500/20">
+              <button
+                type="button"
+                onClick={() => setPeriod('mensual')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                  period === 'mensual'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>📅 Meta Mensual</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod('anual')}
+                className={`py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                  period === 'anual'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>🎯 Meta Anual</span>
+              </button>
+            </div>
           </div>
 
           <div>

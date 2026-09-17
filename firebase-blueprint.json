@@ -45,6 +45,7 @@
         "color": { "type": "string" },
         "image": { "type": "string" },
         "timeline": { "type": "string" },
+        "period": { "type": "string" },
         "updatedAt": { "type": "string" }
       }
     },

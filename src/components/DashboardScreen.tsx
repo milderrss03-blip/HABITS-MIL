@@ -6,12 +6,15 @@ import { TareasTab } from './TareasTab';
 import { MetasTab } from './MetasTab';
 import { MetricasTab } from './MetricasTab';
 import { CalendarioTab } from './CalendarioTab';
-import { AsistenteTab } from './AsistenteTab';
 import { BottomNav } from './BottomNav';
+import { FloatingAIAssistant } from './FloatingAIAssistant';
 import { EditHabitModal } from './EditHabitModal';
 import { EditTaskModal } from './EditTaskModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { ShareModal } from './ShareModal';
+import { TaskReminderNotification, triggerTaskReminderTest } from './TaskReminderNotification';
+import { CustomNotificationModal } from './CustomNotificationModal';
+import { requestTaskNotificationPermission, playTaskReminderChime } from '../utils/taskNotification';
 import {
   Bell,
   Plus,
@@ -21,6 +24,9 @@ import {
   ShieldCheck,
   User,
   CheckCircle2,
+  CheckSquare,
+  Smartphone,
+  Volume2,
   Calendar,
   Flame,
   Sun,
@@ -29,7 +35,8 @@ import {
   Crown,
   Clock,
   Mail,
-  Share2
+  Share2,
+  Sliders
 } from 'lucide-react';
 import { GoogleIcon } from './GoogleIcon';
 import { getWisdomForDate, getDayNameSpanish } from '../data/millionaireWisdom';
@@ -101,6 +108,7 @@ export function DashboardScreen({
   // Modals for editing & deletion
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
+  const [customNotificationModalOpen, setCustomNotificationModalOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState<{
     id: string;
     title: string;
@@ -137,11 +145,13 @@ export function DashboardScreen({
   const pendingTasksCount = tasks.filter((t) => !t.completed).length;
 
   return (
-    <div className="relative flex flex-col min-h-screen w-full bg-[#070a11] text-on-surface antialiased font-sans select-none pb-20 max-w-[430px] mx-auto shadow-2xl overflow-x-hidden">
-      {/* Ambient Orbital Background Glows */}
-      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[340px] h-[340px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-[28%] left-1/2 -translate-x-1/2 w-[280px] h-[280px] bg-cyan-500/10 rounded-full blur-2xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute top-[65%] left-1/2 -translate-x-1/2 w-[320px] h-[320px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative flex flex-col min-h-screen w-full bg-[#070a11] text-on-surface antialiased font-sans select-none pb-[68px] max-w-[430px] mx-auto shadow-2xl overflow-x-hidden">
+      {/* Ambient Orbital Background Glows in clipped container */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[340px] h-[340px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 w-[280px] h-[280px] bg-cyan-500/10 rounded-full blur-2xl animate-pulse-glow" />
+        <div className="absolute top-[65%] left-1/2 -translate-x-1/2 w-[320px] h-[320px] bg-blue-600/10 rounded-full blur-3xl" />
+      </div>
 
       {/* Top App Bar with Name & Notification only as requested */}
       <header className="flex items-center justify-between px-4 pt-4 pb-2 relative z-20">
@@ -167,6 +177,14 @@ export function DashboardScreen({
           </button>
         </div>
       </header>
+
+      {/* Sistema de Notificación Dinámica en el Celular de la Pantalla */}
+      <TaskReminderNotification
+        tasks={tasks}
+        onToggleTask={onToggleTask}
+        onNavigateToTasks={() => setCurrentTab('tareas')}
+        onOpenCustomizer={() => setCustomNotificationModalOpen(true)}
+      />
 
       {/* User Profile Menu Dropdown */}
       {profileMenuOpen && (
@@ -338,6 +356,78 @@ export function DashboardScreen({
                   <span className="text-slate-400 text-[11px]">Meta mensual al 82%. ¡Estás a $550 de tu hito!</span>
                 </div>
               </div>
+
+              {/* Recordatorios de Tareas en Móvil */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#071329] via-[#091a38] to-[#120d29] border border-cyan-400/40 shadow-[0_0_25px_rgba(6,182,212,0.18)] flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-300">
+                      <CheckSquare className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11.5px] font-bold text-white flex items-center gap-1.5">
+                        <span>Recordatorio en Móvil</span>
+                        <span className="text-[8.5px] px-1.5 py-0.2 rounded bg-cyan-500/25 text-cyan-200 font-extrabold border border-cyan-400/30">
+                          Icono + Sonido
+                        </span>
+                      </span>
+                      <span className="text-[9.5px] text-slate-400">
+                        Campana armónica & alertas con icono de tarea
+                      </span>
+                    </div>
+                  </div>
+                  <Smartphone className="w-4 h-4 text-cyan-300" />
+                </div>
+
+                <p className="text-[10.5px] text-slate-300 leading-snug">
+                  Suena y emite vibración háptica al llegar la hora de cada tarea pendiente con su icono oficial en la barra de estado.
+                </p>
+
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await requestTaskNotificationPermission();
+                        const sampleTask = tasks.find(t => !t.completed) || {
+                          id: 'demo-rem-task',
+                          title: 'Completar hito estratégico del día',
+                          completed: false,
+                          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                          priority: 'urgente',
+                          category: 'trabajo'
+                        };
+                        triggerTaskReminderTest(sampleTask);
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-400 to-indigo-500 text-slate-950 font-extrabold text-[11px] hover:brightness-110 active:scale-98 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.35)]"
+                    >
+                      <Bell className="w-3 h-3" />
+                      <span>Probar en Celular</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => playTaskReminderChime('crystal')}
+                      className="p-2 rounded-xl frosted-pill border border-cyan-500/30 text-cyan-300 hover:text-white hover:border-cyan-400 transition cursor-pointer"
+                      title="Escuchar sonido de campana"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      setCustomNotificationModalOpen(true);
+                    }}
+                    className="w-full py-1.5 px-3 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Personalizar Notificación (Sonido, Icono, Color)</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -401,24 +491,26 @@ export function DashboardScreen({
             onToggleEvent={onToggleEvent}
           />
         )}
-
-        {currentTab === 'asistente' && (
-          <AsistenteTab
-            tasks={tasks}
-            onAddTask={onAddTask}
-            onEditTask={onEditTask}
-            onDeleteTask={onDeleteTask}
-            onToggleTask={onToggleTask}
-          />
-        )}
       </main>
 
-      {/* Bottom Navigation with 6 Apex Tabs */}
+      {/* Bottom Navigation with 5 Apex Tabs */}
       <BottomNav
         currentTab={currentTab}
         onSelectTab={(t) => setCurrentTab(t)}
         onOpenZen={onBackToWelcome}
         pendingTasksCount={pendingTasksCount}
+      />
+
+      {/* Floating AI Suite: Asistente IA (Textos) y Agente IA (Voz y Acciones) */}
+      <FloatingAIAssistant
+        tasks={tasks}
+        habits={habits}
+        onAddTask={onAddTask}
+        onEditTask={onEditTask}
+        onToggleTask={onToggleTask}
+        onDeleteTask={onDeleteTask}
+        onAddEvent={onAddEvent}
+        onNavigateToTab={(t) => setCurrentTab(t)}
       />
 
       {/* Quick Add Modal */}
@@ -534,6 +626,13 @@ export function DashboardScreen({
           }}
         />
       )}
+
+      {/* Modal para Personalizar Notificaciones del Celular */}
+      <CustomNotificationModal
+        isOpen={customNotificationModalOpen}
+        onClose={() => setCustomNotificationModalOpen(false)}
+        tasks={tasks}
+      />
 
       {/* Modal Compartir con Amigos */}
       <ShareModal

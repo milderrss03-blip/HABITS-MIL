@@ -32,7 +32,7 @@ const STORAGE_KEY_EVENTS = 'habits_mil_events_v2';
 const STORAGE_KEY_USER = 'habits_mil_user_v1';
 
 export default function App() {
-  const [screen, setScreen] = useState<ActiveScreen>('welcome');
+  const [screen, setScreen] = useState<ActiveScreen>('dashboard');
   const [isMobileFrame, setIsMobileFrame] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isGoogleAuthOpen, setIsGoogleAuthOpen] = useState(false);
@@ -442,11 +442,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070a11] text-slate-100 flex flex-col items-center justify-center p-0 sm:p-4 selection:bg-cyan-500 selection:text-black relative overflow-hidden">
-      {/* Platform-wide Cosmic Background Glows */}
-      <div className="absolute -top-40 left-1/4 -translate-x-1/2 w-[600px] h-[600px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 right-10 w-[450px] h-[450px] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] bg-blue-700/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen w-full bg-[#070a11] text-slate-100 flex flex-col items-center justify-start p-0 sm:p-4 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden">
+      {/* Platform-wide Cosmic Background Glows in isolated non-overflowing fixed container */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-40 left-1/4 -translate-x-1/2 w-[600px] h-[600px] bg-gradient-to-b from-cyan-600/15 via-blue-700/10 to-transparent rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-10 w-[450px] h-[450px] bg-cyan-500/10 rounded-full blur-3xl animate-pulse-glow" />
+        <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] bg-blue-700/10 rounded-full blur-3xl" />
+      </div>
 
       {/* Toast Notification */}
       <AnimatePresence>
@@ -526,12 +528,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Container - Supports Simulated iPhone Mobile Frame (390px) as requested or Expanded */}
+      {/* Main Container - Supports Simulated iPhone Mobile Frame (420px) or Expanded */}
       <main
         className={`w-full transition-all duration-300 relative bg-[#070a11] ${
           isMobileFrame
-            ? 'max-w-[390px] min-h-screen sm:min-h-[844px] sm:max-h-[860px] sm:rounded-[44px] sm:border sm:border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.18)] overflow-hidden'
-            : 'max-w-2xl min-h-screen sm:min-h-[844px] sm:rounded-3xl sm:border sm:border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.18)] overflow-hidden'
+            ? 'max-w-[420px] min-h-screen sm:my-2 sm:rounded-[44px] sm:border sm:border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.18)]'
+            : 'max-w-2xl min-h-screen sm:my-2 sm:rounded-3xl sm:border sm:border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.18)]'
         }`}
       >
         <AnimatePresence mode="wait">
@@ -542,7 +544,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
-              className="w-full h-full"
+              className="w-full flex-1 flex flex-col"
             >
               <WelcomeScreen
                 onEnter={() => setScreen('dashboard')}
@@ -561,7 +563,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.25 }}
-              className="w-full h-full"
+              className="w-full flex-1 flex flex-col"
             >
               <DashboardScreen
                 onBackToWelcome={() => setScreen('welcome')}

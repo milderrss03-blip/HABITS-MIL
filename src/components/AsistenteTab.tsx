@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { DailyTask } from '../types';
+import { DailyTask, CalendarEvent } from '../types';
 import { binauralSound } from '../utils/audio';
 import {
   Bot,
@@ -40,6 +40,7 @@ export interface AsistenteTabProps {
   onEditTask?: (id: string, updated: Partial<DailyTask>) => void;
   onDeleteTask?: (id: string) => void;
   onToggleTask?: (id: string) => void;
+  onAddEvent?: (event: Omit<CalendarEvent, 'id'>) => void;
 }
 
 interface ToolExecutionLog {
@@ -55,7 +56,8 @@ export function AsistenteTab({
   onAddTask,
   onEditTask,
   onDeleteTask,
-  onToggleTask
+  onToggleTask,
+  onAddEvent
 }: AsistenteTabProps) {
   const [subTab, setSubTab] = useState<'voz' | 'sonidos' | 'api'>('voz');
 
@@ -110,11 +112,83 @@ export function AsistenteTab({
     localStorage.setItem('habits_mil_mcp_url', mcpUrl);
   }, [mcpUrl]);
 
-  // Sound Engine States
-  const [activeSound, setActiveSound] = useState('zen');
-  const [volume, setVolume] = useState(85);
+  // Sound Engine & Voice Settings States (Sincronizado con Agente IA)
+  const [activeSound, setActiveSound] = useState(() => {
+    return localStorage.getItem('habits_mil_haptic_sound') || 'zen';
+  });
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('habits_mil_voice_volume');
+    return saved ? parseInt(saved, 10) : 85;
+  });
   const [hapticLevel, setHapticLevel] = useState(3);
   const [toastFeedback, setToastFeedback] = useState<string | null>(null);
+
+  // Voz y sintetizador neural
+  const [voiceRate, setVoiceRate] = useState<number>(() => {
+    const saved = localStorage.getItem('habits_mil_voice_rate');
+    return saved ? parseFloat(saved) : 1.0;
+  });
+  const [voicePitch, setVoicePitch] = useState<number>(() => {
+    const saved = localStorage.getItem('habits_mil_voice_pitch');
+    return saved ? parseFloat(saved) : 1.0;
+  });
+  const [voiceName, setVoiceName] = useState<string>(() => {
+    return localStorage.getItem('habits_mil_voice_name') || '';
+  });
+  const [autoSpeakResponse, setAutoSpeakResponse] = useState<boolean>(() => {
+    const saved = localStorage.getItem('habits_mil_auto_speak');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [agentPersona, setAgentPersona] = useState<'direct' | 'mentor' | 'minimal'>(() => {
+    const saved = localStorage.getItem('habits_mil_agent_persona') as any;
+    return saved || 'direct';
+  });
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Sincronización en localStorage
+  useEffect(() => {
+    localStorage.setItem('habits_mil_voice_rate', voiceRate.toString());
+  }, [voiceRate]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_voice_pitch', voicePitch.toString());
+  }, [voicePitch]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_voice_volume', volume.toString());
+  }, [volume]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_voice_name', voiceName);
+  }, [voiceName]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_auto_speak', autoSpeakResponse.toString());
+  }, [autoSpeakResponse]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_haptic_sound', activeSound);
+  }, [activeSound]);
+  useEffect(() => {
+    localStorage.setItem('habits_mil_agent_persona', agentPersona);
+  }, [agentPersona]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        const rawVoices = window.speechSynthesis.getVoices();
+        const seen = new Set<string>();
+        const uniqueVoices = rawVoices.filter((v) => {
+          const key = `${v.name}|${v.lang}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setAvailableVoices(uniqueVoices);
+        if (!voiceName && uniqueVoices.length > 0) {
+          const esVoice = uniqueVoices.find((v) => v.lang.startsWith('es'));
+          if (esVoice) setVoiceName(esVoice.name);
+        }
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [voiceName]);
 
   // API Key States
   const [selectedProvider, setSelectedProvider] = useState('openai');
@@ -138,7 +212,7 @@ export function AsistenteTab({
 
       osc.type = type;
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(volume / 400, ctx.currentTime);
+      gain.gain.setValueAtTime((volume / 100) * 0.22, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
 
       osc.connect(gain);
@@ -151,6 +225,7 @@ export function AsistenteTab({
   };
 
   const speakText = (text: string) => {
+    if (!autoSpeakResponse) return;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
@@ -158,7 +233,13 @@ export function AsistenteTab({
         const clean = text.replace(/[*_“"”]/g, '');
         const utterance = new SpeechSynthesisUtterance(clean);
         utterance.lang = 'es-ES';
-        utterance.rate = 1.05;
+        utterance.rate = voiceRate;
+        utterance.pitch = voicePitch;
+        utterance.volume = volume / 100;
+        if (voiceName && availableVoices.length > 0) {
+          const chosen = availableVoices.find((v) => v.name === voiceName);
+          if (chosen) utterance.voice = chosen;
+        }
         window.speechSynthesis.speak(utterance);
       } catch {
         // speech synthesis not supported or blocked
@@ -202,17 +283,32 @@ export function AsistenteTab({
 
         if (targetTask && onEditTask) {
           onEditTask(targetTask.id, { time: newTime });
-          const response = `Programé "${targetTask.title}" para las ${newTime} exitosamente. Sincronizada con tu agenda.`;
+          if (onAddEvent) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const [h, m] = (newTime || '10:00').split(':').map(Number);
+            const endH = (h + 1) % 24;
+            const timeEnd = `${String(endH).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+            onAddEvent({
+              title: targetTask.title,
+              type: 'task',
+              date: todayStr,
+              timeStart: newTime,
+              timeEnd,
+              tag: 'Agente IA',
+              completed: false
+            });
+          }
+          const response = `Programé "${targetTask.title}" para las ${newTime} exitosamente. Sincronizada con tu lista de tareas y calendario agenda.`;
           setAgentResponse(response);
           speakText(response);
           playSynthesizedChime(660, 0.4, 'sine');
-          showToast(`Agente IA: Tarea programada a las ${newTime}`);
+          showToast(`Agente IA: Tarea agendada en calendario a las ${newTime}`);
           setToolLogs((prev) => [
             {
               id: `log-${Date.now()}`,
               name: 'task_schedule',
               args: { id: targetTask.id, title: targetTask.title, time: newTime },
-              result: `Horario establecido a ${newTime}`,
+              result: `Horario establecido a ${newTime} en Tareas y Agenda`,
               timestamp
             },
             ...prev
@@ -222,19 +318,35 @@ export function AsistenteTab({
           const title = commandText
             .replace(/programar|reprogramar|mover|agenda|a las \d{1,2}(:\d{2})?|la tarea/gi, '')
             .trim() || 'Sesión de trabajo focalizado';
+          const todayStr = new Date().toISOString().split('T')[0];
           if (onAddTask) {
             onAddTask({
               title,
               time: newTime,
+              date: todayStr,
               priority: 'normal',
               category: 'trabajo'
             });
-            const response = `No encontré esa tarea, así que creé "${title}" y la programé para las ${newTime}.`;
-            setAgentResponse(response);
-            speakText(response);
-            playSynthesizedChime(580, 0.4, 'sine');
-            showToast(`Agente IA: Nueva tarea programada a las ${newTime}`);
           }
+          if (onAddEvent) {
+            const [h, m] = (newTime || '10:00').split(':').map(Number);
+            const endH = (h + 1) % 24;
+            const timeEnd = `${String(endH).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+            onAddEvent({
+              title,
+              type: 'task',
+              date: todayStr,
+              timeStart: newTime,
+              timeEnd,
+              tag: 'Agente IA',
+              completed: false
+            });
+          }
+          const response = `No encontré esa tarea, así que creé "${title}" y la programé para las ${newTime} en tu lista y calendario agenda.`;
+          setAgentResponse(response);
+          speakText(response);
+          playSynthesizedChime(580, 0.4, 'sine');
+          showToast(`Agente IA: Nueva tarea y evento en calendario a las ${newTime}`);
         }
       }
       // 2. DELETE / ELIMINAR TAREA
@@ -401,29 +513,45 @@ export function AsistenteTab({
           title = 'Revisión estratégica de objetivos';
         }
 
+        const todayStr = new Date().toISOString().split('T')[0];
         if (onAddTask) {
           onAddTask({
             title,
             time,
+            date: todayStr,
             priority,
             category
           });
-          const response = `Añadí la tarea "${title}" programada a las ${time} con prioridad ${priority.toUpperCase()}.`;
-          setAgentResponse(response);
-          speakText(response);
-          playSynthesizedChime(528, 0.4, 'sine');
-          showToast(`Agente IA: Tarea creada`);
-          setToolLogs((prev) => [
-            {
-              id: `log-${Date.now()}`,
-              name: 'task_create',
-              args: { title, time, priority, category },
-              result: 'Tarea insertada y sincronizada',
-              timestamp
-            },
-            ...prev
-          ]);
         }
+        if (onAddEvent && time) {
+          const [h, m] = time.split(':').map(Number);
+          const endH = (h + 1) % 24;
+          const timeEnd = `${String(endH).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+          onAddEvent({
+            title,
+            type: 'task',
+            date: todayStr,
+            timeStart: time,
+            timeEnd,
+            tag: 'Agente IA',
+            completed: false
+          });
+        }
+        const response = `Añadí la tarea "${title}" programada a las ${time} en tus tareas y calendario agenda con prioridad ${priority.toUpperCase()}.`;
+        setAgentResponse(response);
+        speakText(response);
+        playSynthesizedChime(528, 0.4, 'sine');
+        showToast(`Agente IA: Tarea y evento agendados`);
+        setToolLogs((prev) => [
+          {
+            id: `log-${Date.now()}`,
+            name: 'task_create',
+            args: { title, time, priority, category },
+            result: 'Tarea y evento de agenda insertados',
+            timestamp
+          },
+          ...prev
+        ]);
       }
 
       setIsAgentExecuting(false);
@@ -483,25 +611,56 @@ export function AsistenteTab({
   const handleCreateManualTask = (e: FormEvent) => {
     e.preventDefault();
     if (!manualTitle.trim()) return;
+    const todayStr = new Date().toISOString().split('T')[0];
     if (onAddTask) {
       onAddTask({
         title: manualTitle.trim(),
         time: manualTime,
+        date: todayStr,
         priority: manualPriority,
         category: manualCategory
       });
-      playSynthesizedChime(528, 0.3, 'sine');
-      showToast('Tarea agregada exitosamente');
-      setNewTaskModalOpen(false);
-      setManualTitle('');
     }
+    if (onAddEvent && manualTime) {
+      const [h, m] = manualTime.split(':').map(Number);
+      const endH = (h + 1) % 24;
+      const timeEnd = `${String(endH).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+      onAddEvent({
+        title: manualTitle.trim(),
+        type: 'task',
+        date: todayStr,
+        timeStart: manualTime,
+        timeEnd,
+        tag: 'Agente IA',
+        completed: false
+      });
+    }
+    playSynthesizedChime(528, 0.3, 'sine');
+    showToast('Tarea agregada exitosamente a tu lista y calendario');
+    setNewTaskModalOpen(false);
+    setManualTitle('');
   };
 
   const handleSaveScheduleTime = () => {
     if (scheduleTaskModal && onEditTask) {
       onEditTask(scheduleTaskModal.id, { time: selectedTimeValue });
+      if (onAddEvent) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const [h, m] = selectedTimeValue.split(':').map(Number);
+        const endH = (h + 1) % 24;
+        const timeEnd = `${String(endH).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+        onAddEvent({
+          title: scheduleTaskModal.title,
+          type: 'task',
+          date: todayStr,
+          timeStart: selectedTimeValue,
+          timeEnd,
+          tag: 'Agente IA',
+          completed: false
+        });
+      }
       playSynthesizedChime(660, 0.35, 'sine');
-      showToast(`Tarea programada a las ${selectedTimeValue}`);
+      showToast(`Tarea programada a las ${selectedTimeValue} en Agenda y Tareas`);
       setScheduleTaskModal(null);
     }
   };
@@ -622,8 +781,8 @@ export function AsistenteTab({
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <span className="material-symbols-outlined text-[16px]">record_voice_over</span>
-          <span>Voz & Agente IA</span>
+          <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+          <span>Agente IA</span>
         </button>
         <button
           type="button"
@@ -634,8 +793,8 @@ export function AsistenteTab({
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <span className="material-symbols-outlined text-[16px]">graphic_eq</span>
-          <span>Sonidos</span>
+          <span className="material-symbols-outlined text-[16px]">tune</span>
+          <span>Ajustes de Voz</span>
         </button>
         <button
           type="button"
@@ -646,8 +805,8 @@ export function AsistenteTab({
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <span className="material-symbols-outlined text-[16px]">key</span>
-          <span>IA & Claves</span>
+          <span className="material-symbols-outlined text-[16px]">hub</span>
+          <span>MCP & Claves</span>
         </button>
       </div>
 
@@ -680,6 +839,24 @@ export function AsistenteTab({
             >
               <Plus className="w-3.5 h-3.5 text-cyan-400" />
               <span>Nueva Tarea</span>
+            </button>
+          </div>
+
+          {/* Banner de Ajustes Rápidos de Voz del Agente */}
+          <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-[11px]">
+            <div className="flex items-center gap-2 text-slate-300 truncate mr-2">
+              <span className="material-symbols-outlined text-[15px] text-cyan-400 flex-shrink-0">tune</span>
+              <span className="truncate">
+                Voz: <strong className="text-cyan-300 font-mono">{voiceRate}x</strong> • Tono: <strong className="text-cyan-300">{voicePitch === 1 ? 'Natural' : voicePitch < 1 ? 'Grave' : 'Agudo'}</strong> • Timbre: <strong className="text-cyan-300 uppercase">{activeSound}</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('sonidos')}
+              className="text-cyan-400 hover:text-cyan-200 font-bold flex items-center gap-1 cursor-pointer transition text-[11px] flex-shrink-0"
+            >
+              <span>Configurar Voz</span>
+              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
             </button>
           </div>
 
@@ -1321,19 +1498,195 @@ export function AsistenteTab({
         </div>
       )}
 
-      {/* VIEW 2: SONIDOS HÁPTICOS */}
+      {/* VIEW 2: AJUSTES DE VOZ & HÁPTICOS DEL AGENTE IA */}
       {subTab === 'sonidos' && (
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-cyan-400 text-[20px]">record_voice_over</span>
+              <h2 className="text-[16px] font-bold text-white">Configuración de Voz del Agente IA</h2>
+            </div>
+            <span className="text-[10px] font-bold text-cyan-400 font-mono">Sincronizado</span>
+          </div>
+          <p className="text-[12px] text-slate-400">
+            Ajusta el sintetizador de voz neuronal, velocidad de locución, tono, personalidad ejecutiva y timbres hápticos del Agente.
+          </p>
+
+          {/* MOTOR DE SÍNTESIS DE VOZ NEURAL */}
+          <div className="frosted-card border border-cyan-500/25 rounded-2xl p-4 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-cyan-500/15 pb-2">
+              <span className="text-[13px] font-bold text-white flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-cyan-400 text-[18px]">settings_voice</span>
+                Sintetizador Neural & Velocidad
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  playSynthesizedChime(528, 0.3, 'sine');
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    try {
+                      window.speechSynthesis.cancel();
+                      const utt = new SpeechSynthesisUtterance('¡Hola! Soy tu Agente IA. Mi voz y velocidad están configuradas con éxito.');
+                      utt.lang = 'es-ES';
+                      utt.rate = voiceRate;
+                      utt.pitch = voicePitch;
+                      utt.volume = volume / 100;
+                      if (voiceName && availableVoices.length > 0) {
+                        const chosen = availableVoices.find(v => v.name === voiceName);
+                        if (chosen) utt.voice = chosen;
+                      }
+                      window.speechSynthesis.speak(utt);
+                      showToast('Reproduciendo muestra de voz');
+                    } catch {
+                      showToast('Error de sintetizador');
+                    }
+                  }
+                }}
+                className="px-2.5 py-1 rounded-xl btn-cyan-glow text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[15px]">play_arrow</span>
+                <span>Probar Voz</span>
+              </button>
+            </div>
+
+            {/* Selector de Voz */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                <span>Voz del Sistema (Navegador):</span>
+                <span className="text-[9.5px] font-mono text-cyan-400">
+                  {availableVoices.length > 0 ? `${availableVoices.length} voces encontradas` : 'Voz predeterminada'}
+                </span>
+              </label>
+              <select
+                value={voiceName}
+                onChange={(e) => {
+                  setVoiceName(e.target.value);
+                  showToast('Voz de sintetizador actualizada');
+                }}
+                className="w-full h-9 bg-slate-950 border border-cyan-500/30 rounded-xl px-2.5 text-[11.5px] text-slate-200 outline-none focus:border-cyan-400 cursor-pointer"
+              >
+                {availableVoices.length === 0 ? (
+                  <option value="">Voz predeterminada en Español (es-ES)</option>
+                ) : (
+                  availableVoices.map((v, idx) => (
+                    <option key={`${v.voiceURI || v.name}-${v.lang}-${idx}`} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Velocidad y Tono */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Velocidad */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-300">
+                  Velocidad: <strong className="text-cyan-400 font-mono">{voiceRate}x</strong>
+                </label>
+                <div className="grid grid-cols-4 gap-1">
+                  {[0.8, 1.0, 1.25, 1.5].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setVoiceRate(rate)}
+                      className={`py-1.5 rounded-lg text-[10.5px] font-mono font-bold border transition cursor-pointer ${
+                        voiceRate === rate
+                          ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                          : 'frosted-pill border-cyan-500/20 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {rate}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tono / Pitch */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-300">
+                  Tono: <strong className="text-cyan-400 font-mono">
+                    {voicePitch < 1 ? 'Grave' : voicePitch === 1 ? 'Natural' : 'Agudo'}
+                  </strong>
+                </label>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { val: 0.8, label: 'Grave' },
+                    { val: 1.0, label: 'Natural' },
+                    { val: 1.2, label: 'Agudo' }
+                  ].map((p) => (
+                    <button
+                      key={p.val}
+                      type="button"
+                      onClick={() => setVoicePitch(p.val)}
+                      className={`py-1.5 rounded-lg text-[10.5px] font-bold border transition cursor-pointer ${
+                        voicePitch === p.val
+                          ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                          : 'frosted-pill border-cyan-500/20 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Personalidad del Agente */}
+            <div className="space-y-1 pt-1">
+              <label className="text-[11px] font-bold text-slate-300">
+                Personalidad del Agente IA:
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { id: 'direct', label: '⚡ Ejecutivo', desc: 'Directo y conciso' },
+                  { id: 'mentor', label: '🧠 Mentor', desc: 'Hábitos y motivación' },
+                  { id: 'minimal', label: '🎯 Minimal', desc: 'Solo confirmaciones' }
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setAgentPersona(p.id as any);
+                      showToast(`Personalidad cambiada a ${p.label}`);
+                    }}
+                    className={`p-2 rounded-xl text-left border transition cursor-pointer flex flex-col ${
+                      agentPersona === p.id
+                        ? 'frosted-card border-cyan-400/80 bg-cyan-500/20 text-white shadow-sm'
+                        : 'frosted-pill border-cyan-500/20 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-[11px] font-bold">{p.label}</span>
+                    <span className="text-[9px] text-slate-400">{p.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Toggle Hablar en voz alta */}
+            <div className="pt-2 border-t border-cyan-500/15">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoSpeakResponse}
+                  onChange={(e) => setAutoSpeakResponse(e.target.checked)}
+                  className="w-4 h-4 rounded text-cyan-500 bg-slate-900 border-slate-700 cursor-pointer accent-cyan-500"
+                />
+                <span className="text-[11.5px] text-slate-300 font-medium">
+                  Hablar respuestas del Agente automáticamente en voz alta
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* BIBLIOTECA DE TIMBRES HÁPTICOS */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-cyan-400 text-[20px]">music_note</span>
-              <h2 className="text-[16px] font-bold text-white">Biblioteca de Timbres Hápticos</h2>
+              <h2 className="text-[15px] font-bold text-white">Biblioteca de Timbres Hápticos</h2>
             </div>
             <span className="text-[10px] font-bold text-slate-400">5 Perfiles</span>
           </div>
-          <p className="text-[12px] text-slate-400">
-            Frecuencias no invasivas diseñadas para alertar al sistema cognitivo sin inducir estrés ni disparar cortisol.
-          </p>
 
           <div className="flex flex-col gap-2">
             {[
